@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
 
 env:
-  HOST: macos-15
-  XCODE_VERSION: 16.4
+  HOST: macos-14
+  XCODE_VERSION: 15.4
   DESTINATION_SIM: platform=iOS Simulator,name=iPhone 17
   DESTINATION_SIM_tvOS: platform=tvOS Simulator,name=Apple TV 4K (3rd generation)
 
