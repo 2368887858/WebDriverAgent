@@ -9,16 +9,33 @@ xcodebuild clean build-for-testing \
 
 pushd $WD
 
-# The reason why here excludes several frameworks are:
-# - to remove test packages to refer to the device local instead of embedded ones
-#   XCTAutomationSupport.framework, XCTest.framewor, XCTestCore.framework,
-#   XCUIAutomation.framework, XCUnit.framework.
-#   This can be excluded only for real devices.
-# - Xcode 16 started generating 5.9MB of 'Testing.framework', but it might not be necessary for WDA.
-# - libXCTestSwiftSupport is used for Swift testing. WDA doesn't include Swift stuff, thus this is not needed.
-zip -r $ZIP_PKG_NAME $SCHEME-Runner.app \
-    -x "$SCHEME-Runner.app/Frameworks/XC*.framework*" \
-       "$SCHEME-Runner.app/Frameworks/Testing.framework*" \
-       "$SCHEME-Runner.app/Frameworks/libXCTestSwiftSupport.dylib"
+# Build the IPA properly - include XCTest frameworks (needed on real devices)
+# and add ad-hoc code signature
+mkdir -p Payload
+cp -r $SCHEME-Runner.app Payload/
+
+# Ad-hoc sign the entire bundle so re-signing tools can work
+codesign -f -s - --entitlements - Payload/$SCHEME-Runner.app <<< '<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>com.apple.private.xctest</key><true/>
+  <key>com.apple.security.get-task-allow</key><true/>
+  <key>platform-application</key><true/>
+  <key>keychain-access-groups</key><array><string>com.apple.token</string></array>
+  <key>com.apple.private.skip-library-validation</key><true/>
+  <key>run-unsigned-code</key><true/>
+  <key>get-task-allow</key><true/>
+  <key>com.apple.private.memorystatus</key><true/>
+  <key>com.apple.private.testing.using-test-proxy</key><true/>
+</dict></plist>'
+
+# Also sign the xctest bundle
+if [ -d "Payload/$SCHEME-Runner.app/PlugIns/WebDriverAgentRunner.xctest" ]; then
+  codesign -f -s - Payload/$SCHEME-Runner.app/PlugIns/WebDriverAgentRunner.xctest
+fi
+
+# Package as IPA
+zip -r $ZIP_PKG_NAME Payload
+
 popd
 mv $WD/$ZIP_PKG_NAME ./
